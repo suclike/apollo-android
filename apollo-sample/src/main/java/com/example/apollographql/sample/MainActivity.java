@@ -1,9 +1,11 @@
 package com.example.apollographql.sample;
 
 import android.os.Bundle;
+import android.os.Looper;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.apollographql.android.ApolloCall;
 import com.apollographql.android.api.graphql.Response;
@@ -22,6 +24,18 @@ public class MainActivity extends AppCompatActivity {
     setContentView(R.layout.activity_main);
     final TextView txtResponse = (TextView) findViewById(R.id.txt_response);
     application = (SampleApplication) getApplication();
+
+
+    application.executor().execute(new Runnable() {
+      @Override public void run() {
+        if (Looper.getMainLooper() == Looper.myLooper()) {
+          Toast.makeText(MainActivity.this, "Main Thread", Toast.LENGTH_LONG).show();
+        } else {
+          Toast.makeText(MainActivity.this, "NOT Main Thread", Toast.LENGTH_LONG).show();
+        }
+      }
+    });
+
 
     application.apolloClient().newCall(new FeedQuery(FeedQuery.Variables.builder()
         .limit(10)
