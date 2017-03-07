@@ -1,5 +1,7 @@
 package com.apollographql.android.impl;
 
+import android.support.annotation.NonNull;
+
 import com.apollographql.android.ApolloCall;
 import com.apollographql.android.ApolloPrefetch;
 import com.apollographql.android.CustomTypeAdapter;
@@ -19,6 +21,7 @@ import com.squareup.moshi.Moshi;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 import javax.annotation.Nonnull;
 
@@ -38,6 +41,7 @@ public final class ApolloClient implements ApolloCall.Factory {
   private final Call.Factory httpCallFactory;
   private final HttpCache httpCache;
   private final Cache cache;
+  private final Executor executor;
   private final Map<ScalarType, CustomTypeAdapter> customTypeAdapters;
   private final Moshi moshi;
   private final Map<Class, ResponseFieldMapper> responseFieldMapperPool = new LinkedHashMap<>();
@@ -46,6 +50,7 @@ public final class ApolloClient implements ApolloCall.Factory {
     this.serverUrl = builder.serverUrl;
     this.httpCallFactory = builder.okHttpClient;
     this.httpCache = builder.httpCache;
+    this.executor = builder.executor;
     this.cache = builder.cache;
     this.customTypeAdapters = builder.customTypeAdapters;
     this.moshi = builder.moshiBuilder.build();
@@ -63,7 +68,7 @@ public final class ApolloClient implements ApolloCall.Factory {
       }
     }
     return new RealApolloCall<>(operation, serverUrl, httpCallFactory, httpCache, moshi,
-        new ResponseBodyConverter(operation, responseFieldMapper, customTypeAdapters), cache);
+        new ResponseBodyConverter(operation, responseFieldMapper, customTypeAdapters), cache, executor);
   }
 
   @Override
@@ -90,6 +95,7 @@ public final class ApolloClient implements ApolloCall.Factory {
     OkHttpClient okHttpClient;
     HttpUrl serverUrl;
     HttpCache httpCache;
+    Executor executor;
     Cache cache = Cache.NO_OP_NORMALIZED_CACHE;
     final Map<ScalarType, CustomTypeAdapter> customTypeAdapters = new LinkedHashMap<>();
     Moshi.Builder moshiBuilder = new Moshi.Builder();
@@ -110,6 +116,12 @@ public final class ApolloClient implements ApolloCall.Factory {
     public Builder serverUrl(@Nonnull String baseUrl) {
       checkNotNull(baseUrl, "baseUrl == null");
       this.serverUrl = HttpUrl.parse(baseUrl);
+      return this;
+    }
+
+    public Builder executor(@NonNull Executor executor) {
+      checkNotNull(executor, "executor == null");
+      this.executor = executor;
       return this;
     }
 

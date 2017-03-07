@@ -28,7 +28,7 @@ android {
 dependencies {
   compile dep.appcompat
   compile dep.okhttpLoggingInterceptor
-  compile dep.apolloRuntime
+  compile project(':apollo-runtime')
 
   testCompile dep.junit
 }

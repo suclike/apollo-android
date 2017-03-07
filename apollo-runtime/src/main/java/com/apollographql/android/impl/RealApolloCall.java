@@ -6,10 +6,13 @@ import com.apollographql.android.api.graphql.Response;
 import com.apollographql.android.cache.http.HttpCache;
 import com.apollographql.android.cache.normalized.Cache;
 import com.apollographql.android.cache.normalized.ResponseNormalizer;
+import com.apollographql.android.impl.util.ExceptionRunnable;
 import com.apollographql.android.impl.util.HttpException;
+import com.apollographql.android.impl.util.ResponseRunnable;
 import com.squareup.moshi.Moshi;
 
 import java.io.IOException;
+import java.util.concurrent.Executor;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -27,22 +30,26 @@ final class RealApolloCall<T extends Operation.Data> extends BaseApolloCall impl
   private final ResponseBodyConverter responseBodyConverter;
   private boolean executed;
   private CacheControl cacheControl = CacheControl.DEFAULT;
+  @Nullable
+  private final Executor executor;
 
   RealApolloCall(Operation operation, HttpUrl serverUrl, Call.Factory httpCallFactory, HttpCache httpCache, Moshi moshi,
-      ResponseBodyConverter responseBodyConverter, Cache cache) {
+      ResponseBodyConverter responseBodyConverter, Cache cache, Executor executor) {
     super(operation, serverUrl, httpCallFactory, moshi);
     this.cache = cache;
     this.httpCache = httpCache;
     this.responseBodyConverter = responseBodyConverter;
+    this.executor = executor;
   }
 
   private RealApolloCall(Operation operation, HttpUrl serverUrl, Call.Factory httpCallFactory, HttpCache httpCache,
-      Moshi moshi, ResponseBodyConverter responseBodyConverter, Cache cache, CacheControl cacheControl) {
+      Moshi moshi, ResponseBodyConverter responseBodyConverter, Cache cache, CacheControl cacheControl, Executor executor) {
     super(operation, serverUrl, httpCallFactory, moshi);
     this.httpCache = httpCache;
     this.responseBodyConverter = responseBodyConverter;
     this.cache = cache;
     this.cacheControl = cacheControl;
+    this.executor = executor;
   }
 
   @Nonnull @Override public Response<T> execute() throws IOException {
@@ -71,25 +78,39 @@ final class RealApolloCall<T extends Operation.Data> extends BaseApolloCall impl
 
     httpCall.enqueue(new okhttp3.Callback() {
       @Override public void onFailure(Call call, IOException e) {
-        if (callback != null) {
-          callback.onFailure(e);
-        }
+        handleCallbackException(e, callback);
       }
 
       @Override public void onResponse(Call call, okhttp3.Response httpResponse) throws IOException {
         try {
           Response<T> response = handleResponse(httpResponse);
-          if (callback != null) {
-            callback.onResponse(response);
-          }
+          handleCallbackResponse(response, callback);
         } catch (Exception e) {
-          if (callback != null) {
-            callback.onFailure(e);
-          }
+          handleCallbackException(e, callback);
         }
       }
     });
     return this;
+  }
+
+  void handleCallbackResponse(@Nonnull Response<T> response, @Nullable final Callback<T> callback) {
+    if (callback == null) {
+      return;
+    } else if (executor == null) {
+      callback.onResponse(response);
+    } else {
+      executor.execute(new ResponseRunnable<>(response, callback));
+    }
+  }
+
+  void handleCallbackException(@Nonnull final Exception e, @Nullable final Callback<T> callback) {
+    if (callback == null) {
+      return;
+    } else if (executor == null) {
+      callback.onFailure(e);
+    } else {
+      executor.execute(new ExceptionRunnable<T>(callback, e));
+    }
   }
 
   @Nonnull @Override public ApolloCall<T> network() {
@@ -133,7 +154,7 @@ final class RealApolloCall<T extends Operation.Data> extends BaseApolloCall impl
 
   @Override @Nonnull public ApolloCall<T> clone() {
     return new RealApolloCall<>(operation, serverUrl, httpCallFactory, httpCache, moshi, responseBodyConverter, cache,
-        cacheControl);
+        cacheControl, executor);
   }
 
   private <T extends Operation.Data> Response<T> handleResponse(okhttp3.Response response) throws IOException {
