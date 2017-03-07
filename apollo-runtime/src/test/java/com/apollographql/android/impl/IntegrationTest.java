@@ -28,6 +28,9 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import javax.annotation.Nonnull;
 
@@ -43,8 +46,10 @@ public class IntegrationTest {
   private ApolloClient apolloClient;
   @Rule public final MockWebServer server = new MockWebServer();
 
+  private CustomTypeAdapter<Date> dateCustomTypeAdapter;
+
   @Before public void setUp() {
-    CustomTypeAdapter<Date> dateCustomTypeAdapter = new CustomTypeAdapter<Date>() {
+    dateCustomTypeAdapter = new CustomTypeAdapter<Date>() {
       @Override public Date decode(String value) {
         try {
           return DATE_FORMAT.parse(value);
@@ -209,7 +214,72 @@ public class IntegrationTest {
     latch.await();
   }
 
+
+
+  @Test public void allPlanetQueryAsyncWithExecutor() throws Exception {
+
+    SynchronousExecutor executor = new SynchronousExecutor();
+
+    ApolloClient customClient = ApolloClient.builder()
+        .serverUrl(server.url("/"))
+        .okHttpClient(new OkHttpClient.Builder().build())
+        .executor(executor)
+        .withCustomTypeAdapter(CustomType.DATETIME, dateCustomTypeAdapter)
+        .build();
+
+    final String threadIdentifier = executor.threadIdentifier();
+
+    server.enqueue(mockResponse("src/test/graphql/allPlanetsResponse.json"));
+
+    final CountDownLatch latch = new CountDownLatch(1);
+    ApolloCall call = customClient.newCall(new AllPlanets());
+    call.enqueue(new ApolloCall.Callback<AllPlanets.Data>() {
+      @Override public void onResponse(@Nonnull Response<AllPlanets.Data> response) {
+        assertThat(response.isSuccessful()).isTrue();
+        assertThat(response.data().allPlanets().planets().size()).isEqualTo(60);
+        assertThat(threadIdentifier).isEqualTo(Thread.currentThread().toString());
+        latch.countDown();
+      }
+
+      @Override public void onFailure(@Nonnull Exception e) {
+        latch.countDown();
+        Assert.fail("expected success");
+      }
+    });
+    latch.await();
+  }
+
+
+
+
   private static MockResponse mockResponse(String fileName) throws IOException {
     return new MockResponse().setChunkedBody(Files.toString(new File(fileName), Charsets.UTF_8), 32);
   }
+
+
+  class SynchronousExecutor implements Executor {
+
+
+    private final Thread thread;
+    private Runnable command;
+
+    public SynchronousExecutor() {
+      this.thread = new Thread(new Runnable() {
+        @Override public void run() {
+          command.run();
+        }
+      });
+    }
+
+    public String threadIdentifier() {
+      return thread.toString();
+    }
+
+    @Override public void execute(Runnable command) {
+      this.command = command;
+      thread.start();
+    }
+  }
+
+
 }
