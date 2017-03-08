@@ -10,15 +10,18 @@ import com.apollographql.android.CustomTypeAdapter;
 import com.apollographql.android.api.graphql.Error;
 import com.apollographql.android.api.graphql.Response;
 import com.apollographql.android.impl.type.CustomType;
+import com.apollographql.android.impl.util.AndroidExecutor;
 
 import junit.framework.Assert;
 
+import org.apache.commons.io.IOUtils;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -197,9 +200,40 @@ public class IntegrationTest {
   }
 
   @Test public void allPlanetQueryAsync() throws Exception {
-    server.enqueue(mockResponse("src/test/graphql/allPlanetsResponse.json"));
+
+    String contents = streamResourceToStringWithClose(getClass(), "/allPlanetsResponse.json");
+    MockResponse mockResponse = new MockResponse().setChunkedBody(contents, 32);
+    server.enqueue(mockResponse);
+    //server.enqueue(mockResponse("src/test/graphql/allPlanetsResponse.json"));
 
     final CountDownLatch latch = new CountDownLatch(1);
+    ApolloCall call = apolloClient.newCall(new AllPlanets());
+    call.enqueue(new ApolloCall.Callback<AllPlanets.Data>() {
+      @Override public void onResponse(@Nonnull Response<AllPlanets.Data> response) {
+        assertThat(response.isSuccessful()).isTrue();
+        assertThat(response.data().allPlanets().planets().size()).isEqualTo(60);
+        latch.countDown();
+      }
+
+      @Override public void onFailure(@Nonnull Exception e) {
+        latch.countDown();
+        Assert.fail("expected success");
+      }
+    });
+    latch.await();
+  }
+
+  @Test public void allPlanetQueryExecutor() throws Exception {
+    server.enqueue(mockResponse("src/test/graphql/allPlanetsResponse.json"));
+    final CountDownLatch latch = new CountDownLatch(1);
+
+    apolloClient = ApolloClient.builder()
+        .serverUrl(server.url("/"))
+        .executor(AndroidExecutor.create())
+        .okHttpClient(new OkHttpClient.Builder().build())
+        .withCustomTypeAdapter(CustomType.DATETIME, dateCustomTypeAdapter)
+        .build();
+
     ApolloCall call = apolloClient.newCall(new AllPlanets());
     call.enqueue(new ApolloCall.Callback<AllPlanets.Data>() {
       @Override public void onResponse(@Nonnull Response<AllPlanets.Data> response) {
@@ -219,4 +253,17 @@ public class IntegrationTest {
   private static MockResponse mockResponse(String fileName) throws IOException {
     return new MockResponse().setChunkedBody(Files.toString(new File(fileName), Charsets.UTF_8), 32);
   }
+
+  public static String streamResourceToStringWithClose(final Class contextClass,
+      final String streamIdentifier) throws IOException {
+    InputStream inputStream = null;
+    inputStream = contextClass.getResourceAsStream(streamIdentifier);
+
+
+    //(InputStream inputStream = contextClass.getResourceAsStream(streamIdentifier)) {
+      //return IOUtils.toString(inputStream);
+      return IOUtils.toString(inputStream);
+
+  }
+
 }
