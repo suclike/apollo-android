@@ -20,6 +20,7 @@ import com.squareup.moshi.Moshi;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 import javax.annotation.Nonnull;
 
@@ -41,6 +42,7 @@ public final class ApolloClient implements ApolloCall.Factory {
   private final Cache cache;
   private final Map<ScalarType, CustomTypeAdapter> customTypeAdapters;
   private final Moshi moshi;
+  private final Executor executor;
   private final Map<Class, ResponseFieldMapper> responseFieldMapperPool = new LinkedHashMap<>();
 
   private ApolloClient(Builder builder) {
@@ -48,6 +50,7 @@ public final class ApolloClient implements ApolloCall.Factory {
     this.httpCallFactory = builder.okHttpClient;
     this.httpCache = builder.httpCache;
     this.cache = builder.cache;
+    this.executor = builder.executor;
     this.customTypeAdapters = builder.customTypeAdapters;
     this.moshi = builder.moshiBuilder.build();
   }
@@ -64,7 +67,7 @@ public final class ApolloClient implements ApolloCall.Factory {
       }
     }
     return new RealApolloCall<>(operation, serverUrl, httpCallFactory, httpCache, moshi, responseFieldMapper,
-        customTypeAdapters, cache);
+        customTypeAdapters, cache, executor);
   }
 
   @Override
@@ -92,6 +95,7 @@ public final class ApolloClient implements ApolloCall.Factory {
     HttpUrl serverUrl;
     HttpCache httpCache;
     Cache cache = Cache.NO_CACHE;
+    Executor executor;
     final Map<ScalarType, CustomTypeAdapter> customTypeAdapters = new LinkedHashMap<>();
     Moshi.Builder moshiBuilder = new Moshi.Builder();
 
@@ -111,6 +115,12 @@ public final class ApolloClient implements ApolloCall.Factory {
     public Builder serverUrl(@Nonnull String baseUrl) {
       checkNotNull(baseUrl, "baseUrl == null");
       this.serverUrl = HttpUrl.parse(baseUrl);
+      return this;
+    }
+
+    public Builder executor(@Nonnull Executor executor) {
+      checkNotNull(executor, "executor == null");
+      this.executor = executor;
       return this;
     }
 

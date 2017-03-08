@@ -39,15 +39,11 @@ public class MainActivity extends AppCompatActivity {
           buffer.append("\n\n");
         }
 
-        MainActivity.this.runOnUiThread(new Runnable() {
-          @Override public void run() {
-            txtResponse.setText(buffer.toString());
-          }
-        });
-
+        txtResponse.setText(buffer.toString());
       }
 
       @Override public void onFailure(@Nonnull Exception e) {
+
         Log.e(TAG, e.getMessage(), e);
       }
     });

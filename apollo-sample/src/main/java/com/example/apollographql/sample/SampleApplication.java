@@ -4,6 +4,7 @@ import android.app.Application;
 
 import com.apollographql.android.ApolloCall;
 import com.apollographql.android.impl.ApolloClient;
+import com.apollographql.android.impl.util.AndroidExecutor;
 
 import okhttp3.OkHttpClient;
 import okhttp3.logging.HttpLoggingInterceptor;
@@ -24,6 +25,7 @@ public class SampleApplication extends Application {
     apolloClient = ApolloClient.<ApolloCall>builder()
             .serverUrl(BASE_URL)
             .okHttpClient(okHttpClient)
+            .executor(AndroidExecutor.create())
             .build();
   }
 
