@@ -36,9 +36,16 @@ subprojects {
       classpath = files()
     }
 
-    afterEvaluate {
+    afterEvaluate { project ->
       if (project.tasks.findByName('check')) {
         check.dependsOn('checkstyle')
+      }
+      if (project.hasProperty("android")) {
+        android.libraryVariants.all { variant ->
+          tasks.androidJavadocs.doFirst {
+            classpath += files(variant.javaCompile.classpath.files)
+          }
+        }
       }
     }
   }
