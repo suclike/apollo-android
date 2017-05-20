@@ -6,7 +6,7 @@ import org.gradle.testfixtures.ProjectBuilder
 import spock.lang.Specification
 
 class ApolloAndroidPluginSpec extends Specification {
-  def "creates an IRGen task under the apollo group for a default project"() {
+  def "creates expected tasks under the apollo group and extensions for a default project"() {
     setup:
     def project = ProjectBuilder.builder().build()
     ApolloPluginTestHelper.setupDefaultAndroidProject(project)
@@ -18,15 +18,31 @@ class ApolloAndroidPluginSpec extends Specification {
     def debugTask = project.tasks.getByName(String.format(ApolloIRGenTask.NAME, "Debug"))
     def releaseTask = project.tasks.getByName(String.format(ApolloIRGenTask.NAME, "Release"))
 
+    def generateApolloIR = project.tasks.getByName(String.format(ApolloIRGenTask.NAME, ""))
+
     then:
     debugTask.group.equals(ApolloPlugin.TASK_GROUP)
     debugTask.description.equals("Generate an IR file using apollo-codegen for Debug GraphQL queries")
 
     releaseTask.group.equals(ApolloPlugin.TASK_GROUP)
     releaseTask.description.equals("Generate an IR file using apollo-codegen for Release GraphQL queries")
+
+    debugTask.dependsOn.contains(ApolloCodeGenInstallTask.NAME)
+    releaseTask.dependsOn.contains(ApolloCodeGenInstallTask.NAME)
+
+    generateApolloIR.dependsOn.contains(project.tasks.getByName(String.format(ApolloIRGenTask.NAME, "Debug")))
+    generateApolloIR.dependsOn.contains(project.tasks.getByName(String.format(ApolloIRGenTask.NAME, "Release")))
+
+    project.android.sourceSets.all { sourceSet ->
+      assert (sourceSet.extensions.findByName("graphql")) != null
+      assert (sourceSet.extensions.findByType(GraphQLSourceDirectorySet.class)) != null
+    }
+
+    assert (project.extensions.findByName("apollo")) != null
+    assert (project.extensions.findByType(ApolloExtension.class)) != null
   }
 
-  def "creates an IRGen task under the apollo group for a product-flavoured project"() {
+  def "creates expected tasks under the apollo group and extensions for a product-flavoured project"() {
     setup:
     def project = ProjectBuilder.builder().build()
     def flavors = ["Demo", "Full"]
@@ -46,67 +62,17 @@ class ApolloAndroidPluginSpec extends Specification {
 
       assert (releaseTask.group) == ApolloPlugin.TASK_GROUP
       assert (releaseTask.description) == "Generate an IR file using apollo-codegen for " + flavor + "Release GraphQL queries"
+
+      project.android.sourceSets.all { sourceSet ->
+        assert (sourceSet.extensions.findByName("graphql")) != null
+        assert (sourceSet.extensions.findByType(GraphQLSourceDirectorySet.class)) != null
+      }
+
+      assert (project.extensions.findByName("apollo")) != null
+      assert (project.extensions.findByType(ApolloExtension.class)) != null
     }
   }
 
-  def "adds the node plugin to the project"() {
-    given:
-    def project = ProjectBuilder.builder().build()
-    ApolloPluginTestHelper.setupDefaultAndroidProject(project)
-
-    when:
-    ApolloPluginTestHelper.applyApolloPlugin(project)
-    project.evaluate()
-
-    then:
-    project.plugins.hasPlugin(NodePlugin.class)
-  }
-
-  def "adds a graphql extension for all sourceSets in a default project"() {
-    given:
-    def project = ProjectBuilder.builder().build()
-    ApolloPluginTestHelper.setupDefaultAndroidProject(project)
-
-    when:
-    ApolloPluginTestHelper.applyApolloPlugin(project)
-    project.evaluate()
-
-    then:
-    project.android.sourceSets.all { sourceSet ->
-      assert (sourceSet.extensions.findByName("graphql")) != null
-      assert (sourceSet.extensions.findByType(GraphQLSourceDirectorySet.class)) != null
-    }
-  }
-
-  def "adds a graphql extensions for all sourceSets in a product-flavoured project"() {
-    given:
-    def project = ProjectBuilder.builder().build()
-    ApolloPluginTestHelper.setupAndroidProjectWithProductFlavours(project)
-
-    when:
-    ApolloPluginTestHelper.applyApolloPlugin(project)
-    project.evaluate()
-
-    then:
-    project.android.sourceSets.all { sourceSet ->
-      assert (sourceSet.extensions.findByName("graphql")) != null
-      assert (sourceSet.extensions.findByType(GraphQLSourceDirectorySet.class)) != null
-    }
-  }
-
-  def "adds apollo project-level extension"() {
-    given:
-    def project = ProjectBuilder.builder().build()
-    ApolloPluginTestHelper.setupAndroidProjectWithProductFlavours(project)
-
-    when:
-    ApolloPluginTestHelper.applyApolloPlugin(project)
-    project.evaluate()
-
-    then:
-    assert (project.extensions.findByName("apollo")) != null
-    assert (project.extensions.findByType(ApolloExtension.class)) != null
-  }
 
   def "adds apollo-runtime dependency if not skipped and not found in compile dep list"() {
     given:
