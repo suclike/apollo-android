@@ -15,12 +15,15 @@ import org.gradle.api.tasks.incremental.IncrementalTaskInputs;
 import org.gradle.api.tasks.incremental.InputFileDetails;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ApolloClassGenTask extends SourceTask {
   static final String NAME = "generate%sApolloClasses";
 
   @Internal private String variant;
+  @Internal private Map<File, List<File>> irOutputMap;
   @Input private Map<String, String> customTypeMapping;
   @Input private NullableValueType nullValueType;
   @Input private boolean generateAccessors;
@@ -32,6 +35,7 @@ public class ApolloClassGenTask extends SourceTask {
     nullValueType = nullableValueType == null ? NullableValueType.ANNOTATED
         : NullableValueType.Companion.findByValue(nullableValueType);
     generateAccessors = accessors;
+    irOutputMap = new HashMap<>();
     outputDir = new File(getProject().getBuildDir() + "/" + Joiner.on(File.separator).join(GraphQLCompiler.Companion
         .getOUTPUT_DIRECTORY()));
   }
@@ -41,9 +45,20 @@ public class ApolloClassGenTask extends SourceTask {
     inputs.outOfDate(new Action<InputFileDetails>() {
       @Override
       public void execute(InputFileDetails inputFileDetails) {
-        GraphQLCompiler.Arguments args = new GraphQLCompiler.Arguments(inputFileDetails.getFile(), outputDir,
-            customTypeMapping, nullValueType, generateAccessors);
-        new GraphQLCompiler().write(args);
+        if (inputFileDetails.isRemoved()) {
+          File removedIRFile = inputFileDetails.getFile();
+          for(File f: irOutputMap.get(removedIRFile)) {
+            if (f.exists()) {
+              f.delete();
+            }
+          }
+          irOutputMap.remove(removedIRFile);
+        } else {
+          GraphQLCompiler.Arguments args = new GraphQLCompiler.Arguments(inputFileDetails.getFile(), outputDir,
+              customTypeMapping, nullValueType, generateAccessors);
+          List<File> outputs = new GraphQLCompiler().write(args);
+          irOutputMap.put(inputFileDetails.getFile(), outputs);
+        }
       }
     });
   }
