@@ -1,9 +1,9 @@
 package com.apollographql.apollo.internal.reader;
 
 import com.apollographql.apollo.CustomTypeAdapter;
-import com.apollographql.apollo.api.ResponseField;
 import com.apollographql.apollo.api.Operation;
 import com.apollographql.apollo.api.OperationName;
+import com.apollographql.apollo.api.ResponseField;
 import com.apollographql.apollo.api.ResponseFieldMapper;
 import com.apollographql.apollo.api.ResponseReader;
 import com.apollographql.apollo.api.ScalarType;
@@ -15,7 +15,6 @@ import com.apollographql.apollo.internal.field.MapFieldValueResolver;
 
 import org.junit.Test;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -598,6 +597,10 @@ public class ResponseReaderTest {
 
     @Nonnull @Override public OperationName name() {
       return null;
+    }
+
+    @Nonnull @Override public String operationId() {
+      return "";
     }
   };
 

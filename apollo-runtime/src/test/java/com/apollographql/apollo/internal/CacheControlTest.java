@@ -12,8 +12,6 @@ import com.apollographql.apollo.internal.cache.http.HttpCacheFetchStrategy;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.io.IOException;
-
 import javax.annotation.Nonnull;
 
 import okhttp3.OkHttpClient;
@@ -45,6 +43,10 @@ public class CacheControlTest {
 
       @Nonnull @Override public OperationName name() {
         return null;
+      }
+
+      @Nonnull @Override public String operationId() {
+        return "";
       }
 
       @Override public Object wrapData(Data data) {

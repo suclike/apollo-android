@@ -63,6 +63,10 @@ public class ApolloCallTrackerTest {
     @Nonnull @Override public OperationName name() {
       return null;
     }
+
+    @Nonnull @Override public String operationId() {
+      return "";
+    }
   };
 
   private OkHttpClient.Builder okHttpClientBuilder;
