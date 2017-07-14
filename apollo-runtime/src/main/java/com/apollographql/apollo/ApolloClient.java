@@ -83,6 +83,7 @@ public final class ApolloClient implements ApolloQueryCall.Factory, ApolloMutati
   private final ApolloLogger logger;
   private final ApolloCallTracker tracker = new ApolloCallTracker();
   private final List<ApolloInterceptor> applicationInterceptors;
+  private final boolean sendOperationIdentifiers;
 
   private ApolloClient(Builder builder) {
     this.serverUrl = builder.serverUrl;
@@ -97,6 +98,7 @@ public final class ApolloClient implements ApolloQueryCall.Factory, ApolloMutati
     this.defaultCacheControl = builder.defaultCacheControl;
     this.logger = builder.apolloLogger;
     this.applicationInterceptors = builder.applicationInterceptors;
+    this.sendOperationIdentifiers = builder.sendOperationIdentifiers;
   }
 
   @Override
@@ -117,7 +119,7 @@ public final class ApolloClient implements ApolloQueryCall.Factory, ApolloMutati
   public <D extends Operation.Data, T, V extends Operation.Variables> ApolloPrefetch prefetch(
       @Nonnull Operation<D, T, V> operation) {
     return new RealApolloPrefetch(operation, serverUrl, httpCallFactory,
-        httpCache, moshi, dispatcher, logger, tracker);
+        httpCache, moshi, dispatcher, logger, tracker, sendOperationIdentifiers);
   }
 
   /**
@@ -190,6 +192,7 @@ public final class ApolloClient implements ApolloQueryCall.Factory, ApolloMutati
         .tracker(tracker)
         .refetchQueries(Collections.<Query>emptyList())
         .refetchQueryNames(Collections.<OperationName>emptyList())
+        .sendOperationIdentifiers(sendOperationIdentifiers)
         .build();
   }
 
@@ -211,6 +214,7 @@ public final class ApolloClient implements ApolloQueryCall.Factory, ApolloMutati
     HttpCache httpCache;
     ApolloLogger apolloLogger;
     final List<ApolloInterceptor> applicationInterceptors = new ArrayList<>();
+    boolean sendOperationIdentifiers;
 
     private Builder() {
     }
@@ -376,6 +380,17 @@ public final class ApolloClient implements ApolloQueryCall.Factory, ApolloMutati
      */
     public Builder addApplicationInterceptor(@Nonnull ApolloInterceptor interceptor) {
       applicationInterceptors.add(interceptor);
+      return this;
+    }
+
+    /**
+     *
+     * @param sendOperationIdentifiers True if ApolloClient should send a operation identifier instead of the operation
+     *                        definition. Default: false.
+     * @return The {@link Builder} object to be used for chaining method calls
+     */
+    public Builder sendOperationIdentifiers(boolean sendOperationIdentifiers) {
+      this.sendOperationIdentifiers = sendOperationIdentifiers;
       return this;
     }
 
